@@ -1,1 +1,16 @@
-
+{
+  "name": "one-cup-bot",
+  "version": "1.0.0",
+  "description": "A feature-rich community Discord bot.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "discord.js": "^14.21.0"
+  },
+  "private": true
+}
