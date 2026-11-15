@@ -75,8 +75,37 @@ function getAppEmoji(name) {
   return emoji ? emoji.toString() : "";
 }
 
+// Server emoji IDs supplied for One Cup.
+const SERVER_EMOJIS = {
+  mgmtblue: "<:mgmtblue:1571515767181148251>",
+  logo: "<:logo:1571515890141495417>",
+  staff: "<:staff:1571515988862697482>",
+  meme1: "<:meme1:1571516074959183872>",
+  lagspoink: "<:lagspoink:1571516211420856480>",
+  celebrate: "<:celebrate:1571517991831609357>",
+  noaccess: "<:noaccess:1571517993303805983>",
+  lock: "<:lock:1571517995048509503>",
+  arrow: "<:arrow:1571517997347115109>",
+  x_: "<:x_:1571517999050133504>",
+  unlock: "<:unlock:1571518004255137882>",
+  star: "<:star:1571518006201155604>",
+  mail: "<:mail:1571518007811772456>",
+  wrench: "<:wrench:1571518009061937152>",
+  bolt: "<:bolt:1571518010110251078>",
+  search: "<:search:1571518013696385095>",
+  shield: "<:shield:1571518015567175810>",
+  roblox: "<:roblox:1571518017005944833>",
+  world: "<:world:1571518018197004422>",
+  bell: "<:bell:1571518019581247528>",
+  learn: "<:learn:1571518021292531782>",
+  planet: "<:planet:1571518022550560860>",
+  code: "<:code:1571518023959846993>",
+  affiliate: "<:affiliate:1571518029643259904>",
+  up: "<:up:1571518031480230048>"
+};
+
 function shortReply(name, fallback) {
-  return (getAppEmoji(name) ? getAppEmoji(name) + " " : "") + fallback;
+  return (SERVER_EMOJIS[name] || "") + (SERVER_EMOJIS[name] ? " " : "") + fallback;
 }
 
 // GENERAL COMMANDS
@@ -87,7 +116,7 @@ register("help", {
   async execute(message, args) {
     if (args[0]) {
       const command = findCommand(args[0].toLowerCase());
-      if (!command) return message.reply(shortReply("IMG_2376", "Unknown command."));
+      if (!command) return message.reply(shortReply("noaccess", "Unknown command."));
       return message.reply({
         embeds: [makeEmbed(command.name, [
           "Description: " + command.description,
@@ -116,8 +145,8 @@ register("ping", {
   aliases: ["latency"],
   description: "Check bot latency.",
   async execute(message) {
-    const sent = await message.reply("Pinging...");
-    return sent.edit("Pong! Message: " + (sent.createdTimestamp - message.createdTimestamp) +
+    const sent = await message.reply(shortReply("bolt", "Pinging..."));
+    return sent.edit(shortReply("bolt", "Pong! Message: ") + (sent.createdTimestamp - message.createdTimestamp) +
       "ms | API: " + Math.round(client.ws.ping) + "ms");
   }
 });
@@ -224,7 +253,7 @@ register("emojiadd", {
   async execute(message) {
     const applicationEmojis = await loadApplicationEmojis();
     if (!applicationEmojis || applicationEmojis.size === 0) {
-      return message.reply(shortReply("IMG_2376", "No application emojis found."));
+      return message.reply(shortReply("noaccess", "No application emojis found."));
     }
 
     const existing = new Set(message.guild.emojis.cache.map(emoji => emoji.name));
@@ -251,7 +280,7 @@ register("emojiadd", {
       }
     }
 
-    return message.reply(shortReply("IMG_2375",
+    return message.reply(shortReply("celebrate",
       "Added " + added + " • Skipped " + skipped + " • Failed " + failed + "."));
   }
 });
@@ -264,7 +293,7 @@ register("emojilist", {
   async execute(message) {
     const emojis = await message.guild.emojis.fetch().catch(() => null);
     if (!emojis || emojis.size === 0) {
-      return message.reply(shortReply("IMG_2376", "No server emojis found."));
+      return message.reply(shortReply("noaccess", "No server emojis found."));
     }
 
     const lines = emojis.map(emoji => {
@@ -274,13 +303,13 @@ register("emojilist", {
       return markup + "  " + emoji.name + " — " + emoji.id;
     });
 
-    let output = "Server emojis (" + emojis.size + ")\\n";
+    let output = "Server emojis (" + emojis.size + ")\n";
     for (const line of lines) {
-      if ((output + line + "\\n").length > 1800) {
+      if ((output + line + "\n").length > 1800) {
         await message.channel.send(output);
         output = "";
       }
-      output += line + "\\n";
+      output += line + "\n";
     }
     if (output) await message.channel.send(output);
   }
@@ -296,7 +325,7 @@ register("clear", {
   async execute(message, args) {
     const amount = Number.parseInt(args[0], 10);
     if (!Number.isInteger(amount) || amount < 1 || amount > 99) {
-      return message.reply(shortReply("IMG_2376", "Usage: " + CONFIG.prefix + "clear <1-99>"));
+      return message.reply(shortReply("noaccess", "Usage: " + CONFIG.prefix + "clear <1-99>"));
     }
     const deleted = await message.channel.bulkDelete(amount + 1, true);
     const notice = await message.channel.send("Deleted " + Math.max(0, deleted.size - 1) + " message(s).");
@@ -311,11 +340,11 @@ register("kick", {
   permissions: [PermissionsBitField.Flags.KickMembers],
   async execute(message, args) {
     const target = message.mentions.members.first();
-    if (!target) return message.reply(shortReply("IMG_2376", "Usage: " + CONFIG.prefix + "kick @member [reason]"));
-    if (!target.kickable) return message.reply(shortReply("IMG_2376", "Cannot kick that member."));
+    if (!target) return message.reply(shortReply("noaccess", "Usage: " + CONFIG.prefix + "kick @member [reason]"));
+    if (!target.kickable) return message.reply(shortReply("noaccess", "Cannot kick that member."));
     const reason = args.slice(1).join(" ") || "No reason provided";
     await target.kick(reason + " | Moderator: " + message.author.tag);
-    return message.reply("Kicked " + target.user.tag + ". Reason: " + reason);
+    return message.reply(shortReply("staff", "Kicked " + target.user.tag + ". Reason: " + reason));
   }
 });
 
@@ -326,11 +355,11 @@ register("ban", {
   permissions: [PermissionsBitField.Flags.BanMembers],
   async execute(message, args) {
     const target = message.mentions.members.first();
-    if (!target) return message.reply(shortReply("IMG_2376", "Usage: " + CONFIG.prefix + "ban @member [reason]"));
-    if (!target.bannable) return message.reply(shortReply("IMG_2376", "Cannot ban that member."));
+    if (!target) return message.reply(shortReply("noaccess", "Usage: " + CONFIG.prefix + "ban @member [reason]"));
+    if (!target.bannable) return message.reply(shortReply("noaccess", "Cannot ban that member."));
     const reason = args.slice(1).join(" ") || "No reason provided";
     await target.ban({ reason: reason + " | Moderator: " + message.author.tag });
-    return message.reply("Banned " + target.user.tag + ". Reason: " + reason);
+    return message.reply(shortReply("shield", "Banned " + target.user.tag + ". Reason: " + reason));
   }
 });
 
@@ -344,12 +373,12 @@ register("timeout", {
     const target = message.mentions.members.first();
     const minutes = Number.parseInt(args[1], 10);
     if (!target || !Number.isInteger(minutes) || minutes < 1 || minutes > 40320) {
-      return message.reply(shortReply("IMG_2376", "Usage: " + CONFIG.prefix + "timeout @member <minutes> [reason]"));
+      return message.reply(shortReply("noaccess", "Usage: " + CONFIG.prefix + "timeout @member <minutes> [reason]"));
     }
-    if (!target.moderatable) return message.reply(shortReply("IMG_2376", "Cannot timeout that member."));
+    if (!target.moderatable) return message.reply(shortReply("noaccess", "Cannot timeout that member."));
     const reason = args.slice(2).join(" ") || "No reason provided";
     await target.timeout(minutes * 60000, reason + " | Moderator: " + message.author.tag);
-    return message.reply("Timed out " + target.user.tag + " for " + minutes + " minute(s).");
+    return message.reply(shortReply("lock", "Timed out " + target.user.tag + " for " + minutes + " minute(s)."));
   }
 });
 
@@ -367,17 +396,17 @@ client.on("messageCreate", async message => {
 
     const isBotAdmin = hasBotAdminRole(message.member);
     if (command.roleOnly && !isBotAdmin) {
-      return message.reply(shortReply("IMG_2376", "No permission."));
+      return message.reply(shortReply("noaccess", "No permission."));
     }
     if (command.ownerOnly && !isOwner(message.author.id) && !isBotAdmin) {
-      return message.reply(shortReply("IMG_2376", "No permission."));
+      return message.reply(shortReply("noaccess", "No permission."));
     }
     const missing = command.permissions.filter(permission => !message.member.permissions.has(permission));
-    if (missing.length && !isBotAdmin) return message.reply(shortReply("IMG_2376", "No permission."));
+    if (missing.length && !isBotAdmin) return message.reply(shortReply("noaccess", "No permission."));
     await command.execute(message, args);
   } catch (error) {
     console.error("[One Cup] Command error:", error);
-    await message.reply(shortReply("IMG_2376", "Something went wrong.")).catch(() => {});
+    await message.reply(shortReply("noaccess", "Something went wrong.")).catch(() => {});
   }
 });
 
