@@ -1,1 +1,20 @@
+applications:
+  app:
+    source:
+      root: "/"
+    type: "nodejs:22"
 
+    hooks:
+      build: |
+        set -eux
+        npm install
+
+    web:
+      commands:
+        start: |
+          node -e "require('http').createServer((req,res)=>res.end('One Cup is running')).listen(process.env.PORT || 8080)"
+
+    workers:
+      bot:
+        commands:
+          start: "node index.js"
