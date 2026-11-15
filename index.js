@@ -37,7 +37,7 @@ function makeEmbed(title, description) {
 function register(name, options) {
   commands.set(name, Object.assign({
     name, aliases: [], description: "No description.", category: "General",
-    usage: "", permissions: [], ownerOnly: false
+    usage: "", permissions: [], ownerOnly: false, roleOnly: false
   }, options));
 }
 
@@ -75,6 +75,10 @@ function getAppEmoji(name) {
   return emoji ? emoji.toString() : "";
 }
 
+function shortReply(name, fallback) {
+  return (getAppEmoji(name) ? getAppEmoji(name) + " " : "") + fallback;
+}
+
 // GENERAL COMMANDS
 register("help", {
   aliases: ["commands", "cmds"],
@@ -83,7 +87,7 @@ register("help", {
   async execute(message, args) {
     if (args[0]) {
       const command = findCommand(args[0].toLowerCase());
-      if (!command) return message.reply("That command does not exist.");
+      if (!command) return message.reply(shortReply("IMG_2376", "Unknown command."));
       return message.reply({
         embeds: [makeEmbed(command.name, [
           "Description: " + command.description,
@@ -211,6 +215,47 @@ register("emojis", {
   }
 });
 
+// Copy every application emoji into the current server.
+// This command is restricted to the One Cup Administrator role.
+register("emojiadd", {
+  description: "Add all One Cup application emojis to this server.",
+  category: "Administration",
+  roleOnly: true,
+  async execute(message) {
+    const applicationEmojis = await loadApplicationEmojis();
+    if (!applicationEmojis || applicationEmojis.size === 0) {
+      return message.reply(shortReply("IMG_2376", "No application emojis found."));
+    }
+
+    const existing = new Set(message.guild.emojis.cache.map(emoji => emoji.name));
+    let added = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    for (const emoji of applicationEmojis.values()) {
+      if (existing.has(emoji.name)) {
+        skipped++;
+        continue;
+      }
+      try {
+        await message.guild.emojis.create({
+          attachment: emoji.imageURL(),
+          name: emoji.name,
+          reason: "One Cup application emoji import"
+        });
+        existing.add(emoji.name);
+        added++;
+      } catch (error) {
+        failed++;
+        console.warn("[One Cup] Could not add emoji " + emoji.name + ": " + error.message);
+      }
+    }
+
+    return message.reply(shortReply("IMG_2375",
+      "Added " + added + " • Skipped " + skipped + " • Failed " + failed + "."));
+  }
+});
+
 // MODERATION STARTER COMMANDS
 register("clear", {
   aliases: ["purge"],
@@ -221,7 +266,7 @@ register("clear", {
   async execute(message, args) {
     const amount = Number.parseInt(args[0], 10);
     if (!Number.isInteger(amount) || amount < 1 || amount > 99) {
-      return message.reply("Usage: " + CONFIG.prefix + "clear <1-100>");
+      return message.reply(shortReply("IMG_2376", "Usage: " + CONFIG.prefix + "clear <1-99>"));
     }
     const deleted = await message.channel.bulkDelete(amount + 1, true);
     const notice = await message.channel.send("Deleted " + Math.max(0, deleted.size - 1) + " message(s).");
@@ -236,8 +281,8 @@ register("kick", {
   permissions: [PermissionsBitField.Flags.KickMembers],
   async execute(message, args) {
     const target = message.mentions.members.first();
-    if (!target) return message.reply("Usage: " + CONFIG.prefix + "kick @member [reason]");
-    if (!target.kickable) return message.reply("I cannot kick that member. Check my role position.");
+    if (!target) return message.reply(shortReply("IMG_2376", "Usage: " + CONFIG.prefix + "kick @member [reason]"));
+    if (!target.kickable) return message.reply(shortReply("IMG_2376", "Cannot kick that member."));
     const reason = args.slice(1).join(" ") || "No reason provided";
     await target.kick(reason + " | Moderator: " + message.author.tag);
     return message.reply("Kicked " + target.user.tag + ". Reason: " + reason);
@@ -251,8 +296,8 @@ register("ban", {
   permissions: [PermissionsBitField.Flags.BanMembers],
   async execute(message, args) {
     const target = message.mentions.members.first();
-    if (!target) return message.reply("Usage: " + CONFIG.prefix + "ban @member [reason]");
-    if (!target.bannable) return message.reply("I cannot ban that member. Check my role position.");
+    if (!target) return message.reply(shortReply("IMG_2376", "Usage: " + CONFIG.prefix + "ban @member [reason]"));
+    if (!target.bannable) return message.reply(shortReply("IMG_2376", "Cannot ban that member."));
     const reason = args.slice(1).join(" ") || "No reason provided";
     await target.ban({ reason: reason + " | Moderator: " + message.author.tag });
     return message.reply("Banned " + target.user.tag + ". Reason: " + reason);
@@ -269,9 +314,9 @@ register("timeout", {
     const target = message.mentions.members.first();
     const minutes = Number.parseInt(args[1], 10);
     if (!target || !Number.isInteger(minutes) || minutes < 1 || minutes > 40320) {
-      return message.reply("Usage: " + CONFIG.prefix + "timeout @member <minutes> [reason]");
+      return message.reply(shortReply("IMG_2376", "Usage: " + CONFIG.prefix + "timeout @member <minutes> [reason]"));
     }
-    if (!target.moderatable) return message.reply("I cannot timeout that member. Check my role position.");
+    if (!target.moderatable) return message.reply(shortReply("IMG_2376", "Cannot timeout that member."));
     const reason = args.slice(2).join(" ") || "No reason provided";
     await target.timeout(minutes * 60000, reason + " | Moderator: " + message.author.tag);
     return message.reply("Timed out " + target.user.tag + " for " + minutes + " minute(s).");
@@ -291,15 +336,18 @@ client.on("messageCreate", async message => {
     if (!command) return;
 
     const isBotAdmin = hasBotAdminRole(message.member);
+    if (command.roleOnly && !isBotAdmin) {
+      return message.reply(shortReply("IMG_2376", "No permission."));
+    }
     if (command.ownerOnly && !isOwner(message.author.id) && !isBotAdmin) {
-      return message.reply("Only a bot owner or One Cup Administrator can use that command.");
+      return message.reply(shortReply("IMG_2376", "No permission."));
     }
     const missing = command.permissions.filter(permission => !message.member.permissions.has(permission));
-    if (missing.length && !isBotAdmin) return message.reply("You do not have permission to use that command.");
+    if (missing.length && !isBotAdmin) return message.reply(shortReply("IMG_2376", "No permission."));
     await command.execute(message, args);
   } catch (error) {
     console.error("[One Cup] Command error:", error);
-    await message.reply("Something went wrong while running that command.").catch(() => {});
+    await message.reply(shortReply("IMG_2376", "Something went wrong.")).catch(() => {});
   }
 });
 
