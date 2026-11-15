@@ -208,13 +208,13 @@ register("emojis", {
 // MODERATION STARTER COMMANDS
 register("clear", {
   aliases: ["purge"],
-  description: "Delete 1 to 100 recent messages.",
-  usage: "<1-100>",
+  description: "Delete 1 to 99 recent messages.",
+  usage: "<1-99>",
   category: "Moderation",
   permissions: [PermissionsBitField.Flags.ManageMessages],
   async execute(message, args) {
     const amount = Number.parseInt(args[0], 10);
-    if (!Number.isInteger(amount) || amount < 1 || amount > 100) {
+    if (!Number.isInteger(amount) || amount < 1 || amount > 99) {
       return message.reply("Usage: " + CONFIG.prefix + "clear <1-100>");
     }
     const deleted = await message.channel.bulkDelete(amount + 1, true);
@@ -278,7 +278,7 @@ client.on("messageCreate", async message => {
     if (message.author.bot || !message.guild || !message.content.startsWith(CONFIG.prefix)) return;
     const input = message.content.slice(CONFIG.prefix.length).trim();
     if (!input) return;
-    const parts = input.match(/"[^"]+"|'[^']+'|\\S+/g) || [];
+    const parts = input.match(/"[^"]+"|'[^']+'|\S+/g) || [];
     const name = (parts.shift() || "").toLowerCase();
     const args = parts.map(part => part.replace(/^["']|["']$/g, ""));
     const command = findCommand(name);
