@@ -256,6 +256,36 @@ register("emojiadd", {
   }
 });
 
+// List the emojis currently available in this server.
+register("emojilist", {
+  aliases: ["serveremojis"],
+  description: "List this server's emojis.",
+  category: "Information",
+  async execute(message) {
+    const emojis = await message.guild.emojis.fetch().catch(() => null);
+    if (!emojis || emojis.size === 0) {
+      return message.reply(shortReply("IMG_2376", "No server emojis found."));
+    }
+
+    const lines = emojis.map(emoji => {
+      const markup = emoji.animated
+        ? "<a:" + emoji.name + ":" + emoji.id + ">"
+        : "<:" + emoji.name + ":" + emoji.id + ">";
+      return markup + "  " + emoji.name + " — " + emoji.id;
+    });
+
+    let output = "Server emojis (" + emojis.size + ")\\n";
+    for (const line of lines) {
+      if ((output + line + "\\n").length > 1800) {
+        await message.channel.send(output);
+        output = "";
+      }
+      output += line + "\\n";
+    }
+    if (output) await message.channel.send(output);
+  }
+});
+
 // MODERATION STARTER COMMANDS
 register("clear", {
   aliases: ["purge"],
@@ -305,7 +335,7 @@ register("ban", {
 });
 
 register("timeout", {
-  aliases: ["mute"],
+  aliases: ["mute", "to"],
   description: "Timeout a member for up to 28 days.",
   usage: "<@member> <minutes> [reason]",
   category: "Moderation",
