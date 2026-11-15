@@ -422,21 +422,31 @@ client.once("ready", async () => {
 });
 
 client.on("guildMemberAdd", async member => {
-  if (member.guild.id !== "1571452721796485173" && !member.guild.channels.cache.has("1571452721796485173")) return;
-  const welcomeChannel = member.guild.channels.cache.get("1571452721796485173") ||
-    await member.guild.channels.fetch("1571452721796485173").catch(() => null);
-  if (!welcomeChannel || !welcomeChannel.isTextBased()) return;
+  // Automatically assign the new-member role.
+  try {
+    await member.roles.add("1571505697173282907", "One Cup automatic member role");
+  } catch (error) {
+    console.warn("[One Cup] Could not assign the new-member role: " + error.message);
+  }
 
-  const bell = SERVER_EMOJIS.bell || "";
-  const welcome = (bell ? bell + " " : "") +
-    "Hello! Welcome to OneCup " + member.toString() +
-    ". We are glad to have you, and we are now at **" +
-    member.guild.memberCount + "** members!";
+  // Send the welcome message in the configured channel.
+  try {
+    const welcomeChannel = await member.guild.channels.fetch("1571452721796485173").catch(() => null);
+    if (!welcomeChannel || !welcomeChannel.isTextBased() || !welcomeChannel.send) return;
 
-  await welcomeChannel.send({
-    content: welcome,
-    allowedMentions: { users: [member.id] }
-  }).catch(error => console.warn("[One Cup] Could not send welcome message: " + error.message));
+    const bell = SERVER_EMOJIS.bell || "";
+    const welcome = (bell ? bell + " " : "") +
+      "Hello! Welcome to OneCup " + member.toString() +
+      ". We are glad to have you, and we are now at **" +
+      member.guild.memberCount + "** members!";
+
+    await welcomeChannel.send({
+      content: welcome,
+      allowedMentions: { users: [member.id] }
+    });
+  } catch (error) {
+    console.warn("[One Cup] Could not send welcome message: " + error.message);
+  }
 });
 
 client.on("guildCreate", guild => console.log("[One Cup] Joined " + guild.name));
