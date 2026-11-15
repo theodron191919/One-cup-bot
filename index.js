@@ -5,6 +5,7 @@ const CONFIG = {
   token: process.env.DISCORD_TOKEN,
   clientId: process.env.CLIENT_ID,
   prefix: process.env.PREFIX || "?",
+  adminRoleId: "1571455684753494096",
   owners: (process.env.BOT_OWNER_IDS || "").split(",").map(x => x.trim()).filter(Boolean)
 };
 
@@ -47,6 +48,11 @@ function findCommand(name) {
 
 function isOwner(id) {
   return CONFIG.owners.includes(id);
+}
+
+// This server role receives full access to One Cup commands and admin-only features.
+function hasBotAdminRole(member) {
+  return Boolean(member?.roles?.cache?.has(CONFIG.adminRoleId));
 }
 
 async function loadApplicationEmojis() {
@@ -284,11 +290,12 @@ client.on("messageCreate", async message => {
     const command = findCommand(name);
     if (!command) return;
 
-    if (command.ownerOnly && !isOwner(message.author.id)) {
-      return message.reply("Only the bot owner can use that command.");
+    const isBotAdmin = hasBotAdminRole(message.member);
+    if (command.ownerOnly && !isOwner(message.author.id) && !isBotAdmin) {
+      return message.reply("Only a bot owner or One Cup Administrator can use that command.");
     }
     const missing = command.permissions.filter(permission => !message.member.permissions.has(permission));
-    if (missing.length) return message.reply("You do not have permission to use that command.");
+    if (missing.length && !isBotAdmin) return message.reply("You do not have permission to use that command.");
     await command.execute(message, args);
   } catch (error) {
     console.error("[One Cup] Command error:", error);
