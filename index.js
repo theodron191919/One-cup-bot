@@ -431,7 +431,7 @@ register("cup", {
   async execute(message) {
     const topic = CUP_TOPICS[Math.floor(Math.random() * CUP_TOPICS.length)];
     return message.reply({
-      content: (SERVER_EMOJIS.bell || "") + (SERVER_EMOJIS.bell ? " " : "") + "**Random discussion topic:**\\n" + topic
+      content: (SERVER_EMOJIS.bell || "") + (SERVER_EMOJIS.bell ? " " : "") + "**Random discussion topic:**\n" + topic
     });
   }
 });
@@ -543,13 +543,6 @@ client.once("ready", async () => {
 });
 
 client.on("guildMemberAdd", async member => {
-  // Automatically assign the new-member role.
-  try {
-    await member.roles.add("1571505697173282907", "One Cup automatic member role");
-  } catch (error) {
-    console.warn("[One Cup] Could not assign the new-member role: " + error.message);
-  }
-
   // Send the welcome message in the configured channel.
   try {
     const welcomeChannel = await member.guild.channels.fetch("1571452721796485173").catch(() => null);
