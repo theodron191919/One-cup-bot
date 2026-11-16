@@ -440,6 +440,51 @@ register("cup", {
   }
 });
 
+// STAFF FEEDBACK
+const STAFF_ROLE_ID = "1571460003297103942";
+const STAFF_FEEDBACK_CHANNEL_ID = "1571794688095289414";
+
+async function sendStaffFeedback(guild, submitter, target, feedback) {
+  if (!target || !target.roles.cache.has(STAFF_ROLE_ID)) {
+    return { ok: false, message: "That member does not have the staff role." };
+  }
+  const cleanFeedback = String(feedback || "").trim();
+  if (!cleanFeedback) {
+    return { ok: false, message: "Please include your feedback." };
+  }
+  if (cleanFeedback.length > 1500) {
+    return { ok: false, message: "Feedback must be 1,500 characters or fewer." };
+  }
+
+  const channel = await guild.channels.fetch(STAFF_FEEDBACK_CHANNEL_ID).catch(() => null);
+  if (!channel || !channel.isTextBased() || !channel.send) {
+    return { ok: false, message: "The feedback channel could not be found. Please contact an administrator." };
+  }
+
+  await channel.send({
+    content: "**New staff feedback**\n**Staff member:** " + target.toString() +
+      "\n**Submitted by:** " + submitter.toString() +
+      "\n**Feedback:**\n" + cleanFeedback,
+    allowedMentions: { users: [] }
+  });
+  return { ok: true };
+}
+
+register("stafffeedback", {
+  aliases: ["feedback", "stafffb"],
+  description: "Send feedback about a staff member.",
+  usage: "<@staff member> <feedback>",
+  category: "Community",
+  async execute(message, args) {
+    const target = message.mentions.members.first();
+    const feedback = args.slice(1).join(" ");
+    const result = await sendStaffFeedback(message.guild, message.author, target, feedback);
+    return message.reply(result.ok
+      ? shortReply("celebrate", "Your feedback has been sent to staff management.")
+      : shortReply("noaccess", result.message));
+  }
+});
+
 // MODERATION STARTER COMMANDS
 register("clear", {
   aliases: ["purge"],
@@ -537,11 +582,27 @@ client.on("messageCreate", async message => {
 
 // Slash-command handler for /cup.
 client.on("interactionCreate", async interaction => {
-  if (!interaction.isChatInputCommand() || interaction.commandName !== "cup") return;
+  if (!interaction.isChatInputCommand()) return;
+
   try {
-    await interaction.reply({ content: makeCupTopicMessage() });
+    if (interaction.commandName === "cup") {
+      return await interaction.reply({ content: makeCupTopicMessage() });
+    }
+
+    if (interaction.commandName === "stafffeedback") {
+      const targetUser = interaction.options.getUser("staff_member", true);
+      const feedback = interaction.options.getString("feedback", true);
+      const target = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
+      const result = await sendStaffFeedback(interaction.guild, interaction.user, target, feedback);
+      return await interaction.reply({
+        content: result.ok
+          ? shortReply("celebrate", "Your feedback has been sent to staff management.")
+          : shortReply("noaccess", result.message),
+        ephemeral: true
+      });
+    }
   } catch (error) {
-    console.error("[One Cup] /cup command error:", error);
+    console.error("[One Cup] Slash command error:", error);
     if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
       await interaction.reply({ content: "Something went wrong.", ephemeral: true }).catch(() => {});
     }
@@ -554,21 +615,44 @@ client.once("ready", async () => {
   console.log("[One Cup] discord.js " + version + " | Prefix: " + CONFIG.prefix);
   await loadApplicationEmojis();
 
-  // Register /cup as a global Discord slash command.
+  // Register One Cup's global Discord slash commands.
   try {
     const existingCommands = await client.application.commands.fetch();
-    const cupCommand = existingCommands.find(command => command.name === "cup");
-    if (cupCommand) {
-      await cupCommand.edit({ description: "Get a completely random discussion topic." });
-    } else {
-      await client.application.commands.create({
+    const slashCommands = [
+      {
         name: "cup",
-        description: "Get a completely random discussion topic."
-      });
+        description: "Get a completely random discussion topic.",
+        options: []
+      },
+      {
+        name: "stafffeedback",
+        description: "Send feedback about a staff member.",
+        options: [
+          {
+            type: 6,
+            name: "staff_member",
+            description: "The staff member you want to give feedback about.",
+            required: true
+          },
+          {
+            type: 3,
+            name: "feedback",
+            description: "Your feedback (up to 1,500 characters).",
+            required: true,
+            max_length: 1500
+          }
+        ]
+      }
+    ];
+
+    for (const data of slashCommands) {
+      const existing = existingCommands.find(command => command.name === data.name);
+      if (existing) await existing.edit(data);
+      else await client.application.commands.create(data);
+      console.log("[One Cup] Registered /" + data.name + ".");
     }
-    console.log("[One Cup] Registered /cup.");
   } catch (error) {
-    console.warn("[One Cup] Could not register /cup: " + error.message);
+    console.warn("[One Cup] Could not register slash commands: " + error.message);
   }
 
   client.user.setPresence({
