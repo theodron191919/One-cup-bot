@@ -424,15 +424,19 @@ const CUP_TOPICS = [
   "If everyone had to wear a hat that represented their personality, what hat would you wear?"
 ];
 
+function makeCupTopicMessage() {
+  const topic = CUP_TOPICS[Math.floor(Math.random() * CUP_TOPICS.length)];
+  return (SERVER_EMOJIS.bell || "") + (SERVER_EMOJIS.bell ? " " : "") +
+    "**Random discussion topic:**\n" + topic;
+}
+
 register("cup", {
   aliases: ["topic", "discussion"],
   description: "Get a completely random discussion topic.",
   category: "Fun",
   async execute(message) {
-    const topic = CUP_TOPICS[Math.floor(Math.random() * CUP_TOPICS.length)];
-    return message.reply({
-      content: (SERVER_EMOJIS.bell || "") + (SERVER_EMOJIS.bell ? " " : "") + "**Random discussion topic:**\n" + topic
-    });
+    await message.reply({ content: makeCupTopicMessage() });
+    await message.delete().catch(() => {});
   }
 });
 
@@ -531,11 +535,42 @@ client.on("messageCreate", async message => {
   }
 });
 
+// Slash-command handler for /cup.
+client.on("interactionCreate", async interaction => {
+  if (!interaction.isChatInputCommand() || interaction.commandName !== "cup") return;
+  try {
+    await interaction.reply({ content: makeCupTopicMessage() });
+  } catch (error) {
+    console.error("[One Cup] /cup command error:", error);
+    if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
+      await interaction.reply({ content: "Something went wrong.", ephemeral: true }).catch(() => {});
+    }
+  }
+});
+
 // EVENTS AND STARTUP
 client.once("ready", async () => {
   console.log("[One Cup] Logged in as " + client.user.tag);
   console.log("[One Cup] discord.js " + version + " | Prefix: " + CONFIG.prefix);
   await loadApplicationEmojis();
+
+  // Register /cup as a global Discord slash command.
+  try {
+    const existingCommands = await client.application.commands.fetch();
+    const cupCommand = existingCommands.find(command => command.name === "cup");
+    if (cupCommand) {
+      await cupCommand.edit({ description: "Get a completely random discussion topic." });
+    } else {
+      await client.application.commands.create({
+        name: "cup",
+        description: "Get a completely random discussion topic."
+      });
+    }
+    console.log("[One Cup] Registered /cup.");
+  } catch (error) {
+    console.warn("[One Cup] Could not register /cup: " + error.message);
+  }
+
   client.user.setPresence({
     activities: [{ name: CONFIG.prefix + "help | One Cup", type: 0 }],
     status: "online"
