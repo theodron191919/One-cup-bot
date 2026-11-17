@@ -1,4 +1,6 @@
 "use strict";
+const fs = require("node:fs/promises");
+const path = require("node:path");
 const { Client, GatewayIntentBits, Partials, PermissionsBitField, EmbedBuilder, version } = require("discord.js");
 
 const CONFIG = {
@@ -29,6 +31,28 @@ const client = new Client({
 const commands = new Map();
 const appEmojis = new Map();
 const startedAt = Date.now();
+const GUILD_CONFIG_PATH = path.join(__dirname, "guild-config.json");
+let guildConfigs = {};
+
+async function loadGuildConfigs() {
+  try {
+    guildConfigs = JSON.parse(await fs.readFile(GUILD_CONFIG_PATH, "utf8"));
+    if (!guildConfigs || typeof guildConfigs !== "object" || Array.isArray(guildConfigs)) guildConfigs = {};
+  } catch (error) {
+    if (error.code !== "ENOENT") console.warn("[One Cup] Could not load guild config:", error.message);
+    guildConfigs = {};
+  }
+}
+
+async function saveGuildConfigs() {
+  const temporaryPath = GUILD_CONFIG_PATH + ".tmp";
+  await fs.writeFile(temporaryPath, JSON.stringify(guildConfigs, null, 2) + "\n", "utf8");
+  await fs.rename(temporaryPath, GUILD_CONFIG_PATH);
+}
+
+function getGuildConfig(guildId) {
+  return guildConfigs[guildId] || {};
+}
 
 function makeEmbed(title, description) {
   return new EmbedBuilder().setColor(0x5865F2).setTitle(title).setDescription(description).setTimestamp();
@@ -441,12 +465,15 @@ register("cup", {
 });
 
 // STAFF FEEDBACK
-const STAFF_ROLE_ID = "1571460003297103942";
 const STAFF_FEEDBACK_CHANNEL_ID = "1571794688095289414";
 
 async function sendStaffFeedback(guild, submitter, target, feedback) {
-  if (!target || !target.roles.cache.has(STAFF_ROLE_ID)) {
-    return { ok: false, message: "That member does not have the staff role." };
+  const staffRoleId = getGuildConfig(guild.id).staffRoleId;
+  if (!staffRoleId) {
+    return { ok: false, message: "Staff feedback has not been configured yet. Ask an administrator to run /config." };
+  }
+  if (!target || !target.roles.cache.has(staffRoleId)) {
+    return { ok: false, message: "That member does not have the configured staff role." };
   }
   const cleanFeedback = String(feedback || "").trim();
   if (!cleanFeedback) {
@@ -589,6 +616,24 @@ client.on("interactionCreate", async interaction => {
       return await interaction.reply({ content: makeCupTopicMessage() });
     }
 
+    if (interaction.commandName === "config") {
+      if (!interaction.memberPermissions?.has(PermissionsBitField.Flags.Administrator)) {
+        return await interaction.reply({ content: shortReply("noaccess", "Only server administrators can use /config."), ephemeral: true });
+      }
+
+      const role = interaction.options.getRole("staff_role", true);
+      guildConfigs[interaction.guildId] = {
+        ...getGuildConfig(interaction.guildId),
+        staffRoleId: role.id
+      };
+      await saveGuildConfigs();
+      return await interaction.reply({
+        content: shortReply("celebrate", "Staff role set to " + role.toString() + ". Staff feedback will now accept feedback about members with this role."),
+        ephemeral: true,
+        allowedMentions: { roles: [] }
+      });
+    }
+
     if (interaction.commandName === "stafffeedback") {
       const targetUser = interaction.options.getUser("staff_member", true);
       const feedback = interaction.options.getString("feedback", true);
@@ -611,6 +656,7 @@ client.on("interactionCreate", async interaction => {
 
 // EVENTS AND STARTUP
 client.once("ready", async () => {
+  await loadGuildConfigs();
   console.log("[One Cup] Logged in as " + client.user.tag);
   console.log("[One Cup] discord.js " + version + " | Prefix: " + CONFIG.prefix);
   await loadApplicationEmojis();
@@ -619,6 +665,25 @@ client.once("ready", async () => {
   try {
     const existingCommands = await client.application.commands.fetch();
     const slashCommands = [
+      {
+        name: "config",
+        description: "Configure One Cup for this server (administrators only).",
+        options: [
+          {
+            type: 1,
+            name: "staff-role",
+            description: "Set the role that identifies staff for staff feedback.",
+            options: [
+              {
+                type: 8,
+                name: "staff_role",
+                description: "The role members must have to be selectable for staff feedback.",
+                required: true
+              }
+            ]
+          }
+        ]
+      },
       {
         name: "cup",
         description: "Get a completely random discussion topic.",
