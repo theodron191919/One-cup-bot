@@ -62,7 +62,6 @@ function scheduleClose(channel, closeAt) {
     const d = ticketData(current);
     if (!d.closeAt || d.closeAt !== closeAt || d.closedAt) return clearTimer(channel.id);
     await closeTicket(current, "The scheduled close-request timer");
-    clearTimer(channel.id);
   }, delay);
   timers.set(channel.id, timer);
 }
