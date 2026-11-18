@@ -1,4 +1,6 @@
 "use strict";
+const fs = require("node:fs/promises");
+const path = require("node:path");
 const { Client, GatewayIntentBits, Partials, PermissionsBitField, EmbedBuilder, version } = require("discord.js");
 
 const CONFIG = {
@@ -29,6 +31,29 @@ const client = new Client({
 const commands = new Map();
 const appEmojis = new Map();
 const startedAt = Date.now();
+const GUILD_CONFIG_PATH = path.join(__dirname, "guild-config.json");
+let guildConfigs = {};
+
+async function loadGuildConfigs() {
+  try {
+    const raw = await fs.readFile(GUILD_CONFIG_PATH, "utf8");
+    guildConfigs = JSON.parse(raw);
+    if (!guildConfigs || typeof guildConfigs !== "object" || Array.isArray(guildConfigs)) guildConfigs = {};
+  } catch (error) {
+    if (error.code !== "ENOENT") console.warn("[TroupeBot] Could not load role config:", error);
+    guildConfigs = {};
+  }
+}
+
+async function saveGuildConfigs() {
+  const tempPath = GUILD_CONFIG_PATH + ".tmp";
+  await fs.writeFile(tempPath, JSON.stringify(guildConfigs, null, 2), "utf8");
+  await fs.rename(tempPath, GUILD_CONFIG_PATH);
+}
+
+function getGuildConfig(guildId) {
+  return guildConfigs[guildId] || {};
+}
 function makeEmbed(title, description) {
   return new EmbedBuilder().setColor(0x5865F2).setTitle(title).setDescription(description).setTimestamp();
 }
@@ -587,6 +612,56 @@ client.on("interactionCreate", async interaction => {
       return await interaction.reply({ content: makeCupTopicMessage() });
     }
 
+    if (interaction.commandName === "config") {
+      const current = getGuildConfig(interaction.guildId);
+      const roleLine = (label, id) => label + ": " + (id ? "<@&" + id + ">" : "Not set");
+      const staffRole = interaction.options.getRole("staff_role");
+      const adminRole = interaction.options.getRole("admin_role");
+      const ownershipRole = interaction.options.getRole("ownership_role");
+
+      if (!staffRole && !adminRole && !ownershipRole) {
+        const roleLine = (label, id) => label + ": " + (id ? "<@&" + id + ">" : "Not set");
+        return await interaction.reply({
+          content: [
+            "**TroupeBot server configuration**",
+            roleLine("Staff role", current.staffRoleId),
+            roleLine("Admin role", current.adminRoleId),
+            roleLine("Ownership role", current.ownershipRoleId),
+            "",
+            "Run /config and select any roles you want to set or update."
+          ].join("\\n"),
+          ephemeral: true
+        });
+      }
+
+      const updated = { ...current };
+      if (staffRole) updated.staffRoleId = staffRole.id;
+      if (adminRole) updated.adminRoleId = adminRole.id;
+      if (ownershipRole) updated.ownershipRoleId = ownershipRole.id;
+      guildConfigs[interaction.guildId] = updated;
+
+      try {
+        await saveGuildConfigs();
+      } catch (error) {
+        console.error("[TroupeBot] Could not save role configuration:", error);
+        return await interaction.reply({
+          content: "The roles were selected, but I couldn't save the configuration. Check that the host allows writing files to the app directory.",
+          ephemeral: true
+        });
+      }
+
+      return await interaction.reply({
+        content: [
+          "Configuration updated:",
+          roleLine("Staff role", updated.staffRoleId),
+          roleLine("Admin role", updated.adminRoleId),
+          roleLine("Ownership role", updated.ownershipRoleId)
+        ].join("\\n"),
+        ephemeral: true,
+        allowedMentions: { roles: [] }
+      });
+    }
+
     if (interaction.commandName === "stafffeedback") {
       const targetUser = interaction.options.getUser("staff_member", true);
       const feedback = interaction.options.getString("feedback", true);
@@ -609,6 +684,7 @@ client.on("interactionCreate", async interaction => {
 
 // EVENTS AND STARTUP
 client.once("ready", async () => {
+  await loadGuildConfigs();
   console.log("[One Cup] Logged in as " + client.user.tag);
   console.log("[One Cup] discord.js " + version + " | Prefix: " + CONFIG.prefix);
   await loadApplicationEmojis();
@@ -617,6 +693,15 @@ client.once("ready", async () => {
   try {
     const existingCommands = await client.application.commands.fetch();
     const slashCommands = [
+      {
+        name: "config",
+        description: "Set or view this server's TroupeBot roles.",
+        options: [
+          { type: 8, name: "staff_role", description: "The server's staff role.", required: false },
+          { type: 8, name: "admin_role", description: "The server's admin role.", required: false },
+          { type: 8, name: "ownership_role", description: "The server's ownership role.", required: false }
+        ]
+      },
       {
         name: "cup",
         description: "Get a completely random discussion topic.",
