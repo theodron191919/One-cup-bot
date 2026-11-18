@@ -585,6 +585,11 @@ client.on("messageCreate", async message => {
     const command = findCommand(name);
     if (!command) return;
 
+    const hasCommandAccess = message.member.roles.cache.some(role => role.name === "+++");
+    if (!hasCommandAccess) {
+      return message.reply(shortReply("noaccess", "You need the +++ role to use commands."));
+    }
+
     const isBotAdmin = hasBotAdminRole(message.member);
     if (command.roleOnly && !isBotAdmin) {
       return message.reply(shortReply("noaccess", "No permission."));
@@ -606,6 +611,15 @@ client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   try {
+    const member = interaction.member;
+    const hasCommandAccess = member?.roles?.cache?.some(role => role.name === "+++") || false;
+    if (!hasCommandAccess) {
+      return await interaction.reply({
+        content: shortReply("noaccess", "You need the +++ role to use commands."),
+        ephemeral: true
+      });
+    }
+
     if (interaction.commandName === "cup") {
       return await interaction.reply({ content: makeCupTopicMessage() });
     }
