@@ -777,7 +777,18 @@ client.on("guildMemberAdd", async member => {
   }
 });
 
-client.on("guildCreate", guild => console.log("[One Cup] Joined " + guild.name));
+client.on("guildCreate", async guild => {
+  console.log("[One Cup] Joined " + guild.name);
+  try {
+    const channel = await guild.channels.fetch("1571452721796485173").catch(() => null);
+    if (!channel || !channel.isTextBased() || !channel.send) return;
+    await channel.send({
+      content: "To give access to commands, create a role named ```+++ ```. Anyone with it will have access to commands."
+    });
+  } catch (error) {
+    console.warn("[One Cup] Could not send bot-join setup message: " + error.message);
+  }
+});
 client.on("guildDelete", guild => console.log("[One Cup] Left " + guild.name));
 client.on("error", error => console.error("[One Cup] Discord error:", error));
 process.on("unhandledRejection", error => console.error("[One Cup] Unhandled rejection:", error));
