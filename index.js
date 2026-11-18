@@ -2,6 +2,7 @@
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const { Client, GatewayIntentBits, Partials, PermissionsBitField, EmbedBuilder, version } = require("discord.js");
+const tickets = require("./tickets");
 
 const CONFIG = {
   token: process.env.DISCORD_TOKEN,
@@ -594,6 +595,9 @@ client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   try {
+    if (["claim", "close", "delete", "transfer", "add", "remove"].includes(interaction.commandName)) {
+      return await tickets.handle(interaction);
+    }
     const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
     const hasCommandAccess = hasPlusPlusRole(member, interaction.guild);
     if (!hasCommandAccess) {
@@ -687,11 +691,13 @@ client.once("ready", async () => {
   console.log("[One Cup] Logged in as " + client.user.tag);
   console.log("[One Cup] discord.js " + version + " | Prefix: " + CONFIG.prefix);
   await loadApplicationEmojis();
+  await tickets.sendPanel(client).catch(error => console.warn("[TroupeBot] Ticket panel error:", error));
 
   // Register One Cup's global Discord slash commands.
   try {
     const existingCommands = await client.application.commands.fetch();
     const slashCommands = [
+      ...tickets.registerCommands(),
       {
         name: "config",
         description: "Set or view this server's TroupeBot roles.",
