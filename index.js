@@ -733,7 +733,7 @@ client.once("ready", async () => {
   }
 
   client.user.setPresence({
-    activities: [{ name: CONFIG.prefix + "help | One Cup", type: 0 }],
+    activities: [{ name: "The Phantom Troupe", type: 3 }],
     status: "online"
   });
 });
