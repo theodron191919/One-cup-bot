@@ -453,16 +453,6 @@ function makeCupTopicMessage() {
     "**Random discussion topic:**\n" + topic;
 }
 
-register("cup", {
-  aliases: ["topic", "discussion"],
-  description: "Get a completely random discussion topic.",
-  category: "Fun",
-  async execute(message) {
-    await message.reply({ content: makeCupTopicMessage() });
-    await message.delete().catch(() => {});
-  }
-});
-
 // STAFF FEEDBACK
 const STAFF_FEEDBACK_CHANNEL_ID = "1571794688095289414";
 
