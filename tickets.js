@@ -14,7 +14,9 @@ const IDS = {
   claim: "p_363111217226584066",
   close: "p_363111287640559619",
   delete: "p_363111342510444548",
-  reopen: "troupe_ticket_reopen"
+  reopen: "troupe_ticket_reopen",
+  keepOpen: "troupe_close_request_keep_open",
+  closeNow: "troupe_close_request_close"
 };
 const FENCE = String.fromCharCode(96).repeat(3);
 const timers = new Map();
@@ -131,10 +133,31 @@ async function closeRequest(i) {
   if (hours < 1 || hours > 720) return i.reply({ content: "Delay must be between 1 and 720 hours.", ephemeral: true });
   d.closeAt = Date.now() + hours * 60 * 60 * 1000;
   await i.channel.setTopic(topicFor(d));
-  await i.reply({ content: "Close request scheduled. This ticket will close in **" + hours + " hour(s)**.", ephemeral: true });
-  if (d.opener) await i.channel.send({ content: "<@" + d.opener + "> A close request has been submitted by " + i.user.toString() + ". This ticket will automatically close in **" + hours + " hour(s)** unless it is reopened after closure.", allowedMentions: { users: [d.opener] } });
-  else await i.channel.send("A close request has been submitted. This ticket will automatically close in **" + hours + " hour(s)**.");
+  await i.reply({ content: "Close request sent. The ticket will automatically close in **" + hours + " hour(s)** if no choice is made.", ephemeral: true });
+  const row = { type: 1, components: [
+    { type: 2, style: 3, label: "Keep Open", custom_id: IDS.keepOpen, emoji: { name: "🟢" } },
+    { type: 2, style: 4, label: "Close", custom_id: IDS.closeNow, emoji: { name: "🔒" } }
+  ] };
+  const content = (d.opener ? "<@" + d.opener + "> " : "") + "A close request has been submitted by " + i.user.toString() + ". Choose whether to keep this ticket open or close it. If no choice is made, it will automatically close in **" + hours + " hour(s)**.";
+  await i.channel.send({ content, components: [row], allowedMentions: { users: d.opener ? [d.opener] : [] } });
   scheduleClose(i.channel, d.closeAt);
+}
+async function decideCloseRequest(i, keepOpen) {
+  if (!await ticketOnly(i)) return;
+  const d = ticketData(i.channel);
+  if (d.closedAt) return i.reply({ content: "This ticket is already closed.", ephemeral: true });
+  if (!d.closeAt) return i.reply({ content: "There is no pending close request.", ephemeral: true });
+  if (d.opener && i.user.id !== d.opener) return i.reply({ content: "Only the ticket opener can choose whether to keep this ticket open or close it.", ephemeral: true });
+  clearTimer(i.channel.id);
+  if (keepOpen) {
+    d.closeAt = 0;
+    await i.channel.setTopic(topicFor(d));
+    await i.reply({ content: "The ticket will remain open. The close request has been cancelled.", ephemeral: true });
+    await i.channel.send("🟢 " + i.user.toString() + " chose to keep this ticket open.");
+    return;
+  }
+  await i.reply({ content: "Closing ticket...", ephemeral: true });
+  await closeTicket(i.channel, i.user.tag);
 }
 async function transfer(i) {
   if (!await ticketOnly(i)) return;
@@ -246,7 +269,7 @@ async function handle(i) {
     if (i.customId === IDS.claim) return claim(i);
     if (i.customId === IDS.close || i.customId === IDS.closeTop) return close(i);
     if (i.customId === IDS.delete) return del(i);
-    if (i.customId === IDS.reopen) return reopen(i);
+    if (i.customId === IDS.reopen) return reopen(i);\n    if (i.customId === IDS.keepOpen) return decideCloseRequest(i, true);\n    if (i.customId === IDS.closeNow) return decideCloseRequest(i, false);
   }
   if (i.isModalSubmit() && i.customId.startsWith("ticket_modal_")) return create(i, i.customId.slice("ticket_modal_".length));
   if (i.isChatInputCommand()) {
