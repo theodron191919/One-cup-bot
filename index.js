@@ -765,7 +765,8 @@ client.on("guildMemberAdd", async member => {
     const welcome = (bell ? bell + " " : "") +
       "Hello! Welcome to OneCup " + member.toString() +
       ". We are glad to have you, and we are now at **" +
-      member.guild.memberCount + "** members!";
+      member.guild.memberCount + "** members!\n\n" +
+      "To give access to commands, create a role named ```+++ ```. Anyone with it will have access to commands.";
 
     await welcomeChannel.send({
       content: welcome,
