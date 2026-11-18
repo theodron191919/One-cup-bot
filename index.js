@@ -621,6 +621,10 @@ client.on("interactionCreate", async interaction => {
         return await interaction.reply({ content: shortReply("noaccess", "Only server administrators can use /config."), ephemeral: true });
       }
 
+      const subcommand = interaction.options.getSubcommand();
+      if (subcommand !== "staff-role") {
+        return await interaction.reply({ content: "Unknown configuration option.", ephemeral: true });
+      }
       const role = interaction.options.getRole("staff_role", true);
       guildConfigs[interaction.guildId] = {
         ...getGuildConfig(interaction.guildId),
