@@ -46,9 +46,7 @@ async function loadGuildConfigs() {
 }
 
 async function saveGuildConfigs() {
-  const tempPath = GUILD_CONFIG_PATH + ".tmp";
-  await fs.writeFile(tempPath, JSON.stringify(guildConfigs, null, 2), "utf8");
-  await fs.rename(tempPath, GUILD_CONFIG_PATH);
+  await fs.writeFile(GUILD_CONFIG_PATH, JSON.stringify(guildConfigs, null, 2), "utf8");
 }
 
 function getGuildConfig(guildId) {
