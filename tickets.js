@@ -133,7 +133,7 @@ async function closeRequest(i) {
   d.closeAt = Date.now() + hours * 60 * 60 * 1000;
   await i.channel.setTopic(topicFor(d));
   await i.reply({ content: "Close request scheduled. This ticket will close in **" + hours + " hour(s)**.", ephemeral: true });
-  if (d.opener) await i.channel.send({ content: "<@" + d.opener + "> A close request has been submitted by " + i.user.toString() + ". This ticket will automatically close in **" + hours + " hour(s)** unless reopened/cancelled by staff.", allowedMentions: { users: [d.opener] } });
+  if (d.opener) await i.channel.send({ content: "<@" + d.opener + "> A close request has been submitted by " + i.user.toString() + ". This ticket will automatically close in **" + hours + " hour(s)** unless it is reopened after closure.", allowedMentions: { users: [d.opener] } });
   else await i.channel.send("A close request has been submitted. This ticket will automatically close in **" + hours + " hour(s)**.");
   scheduleClose(i.channel, d.closeAt);
 }
