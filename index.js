@@ -620,7 +620,6 @@ client.on("interactionCreate", async interaction => {
       const ownershipRole = interaction.options.getRole("ownership_role");
 
       if (!staffRole && !adminRole && !ownershipRole) {
-        const roleLine = (label, id) => label + ": " + (id ? "<@&" + id + ">" : "Not set");
         return await interaction.reply({
           content: [
             "**TroupeBot server configuration**",
@@ -629,7 +628,7 @@ client.on("interactionCreate", async interaction => {
             roleLine("Ownership role", current.ownershipRoleId),
             "",
             "Run /config and select any roles you want to set or update."
-          ].join("\\n"),
+          ].join("\n"),
           ephemeral: true
         });
       }
@@ -656,7 +655,7 @@ client.on("interactionCreate", async interaction => {
           roleLine("Staff role", updated.staffRoleId),
           roleLine("Admin role", updated.adminRoleId),
           roleLine("Ownership role", updated.ownershipRoleId)
-        ].join("\\n"),
+        ].join("\n"),
         ephemeral: true,
         allowedMentions: { roles: [] }
       });
