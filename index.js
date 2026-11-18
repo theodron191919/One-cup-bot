@@ -606,7 +606,7 @@ client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   try {
-    if (["claim", "close", "delete", "transfer", "add", "remove"].includes(interaction.commandName)) {
+    if (["claim", "close", "delete", "transfer", "add", "remove", "rename", "close-request"].includes(interaction.commandName)) {
       return await tickets.handle(interaction);
     }
     const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
@@ -703,6 +703,7 @@ client.once("ready", async () => {
   console.log("[One Cup] discord.js " + version + " | Prefix: " + CONFIG.prefix);
   await loadApplicationEmojis();
   await tickets.sendPanel(client).catch(error => console.warn("[TroupeBot] Ticket panel error:", error));
+  await tickets.initialize(client).catch(error => console.warn("[TroupeBot] Ticket timer recovery error:", error));
 
   // Register One Cup's global Discord slash commands.
   try {
