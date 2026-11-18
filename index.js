@@ -72,7 +72,15 @@ function isOwner(id) {
   return CONFIG.owners.includes(id);
 }
 
-// This server role receives full access to One Cup commands and admin-only features.
+// The +++ role is the only role used for bot command access.
+function hasPlusPlusRole(member, guild) {
+  const cached = member?.roles?.cache;
+  if (cached?.some(role => role.name === "+++")) return true;
+  const ids = Array.isArray(member?.roles) ? member.roles : [];
+  const role = guild?.roles?.cache?.find(item => item.name === "+++");
+  return Boolean(role && ids.includes(role.id));
+}
+
 function hasBotAdminRole(member) {
   return Boolean(member?.roles?.cache?.has(CONFIG.adminRoleId));
 }
@@ -89,6 +97,30 @@ async function loadApplicationEmojis() {
     console.warn("[One Cup] Could not fetch application emojis: " + error.message);
     return null;
   }
+}
+
+async function importApplicationEmojis(guild) {
+  const applicationEmojis = await loadApplicationEmojis();
+  if (!applicationEmojis?.size) return { ok: false, message: "No application emojis found on the bot application." };
+  const serverEmojis = await guild.emojis.fetch().catch(() => null);
+  if (!serverEmojis) return { ok: false, message: "Couldn't read server emojis. Check the bot's permissions." };
+  const existing = new Set(serverEmojis.map(emoji => emoji.name));
+  let added = 0, skipped = 0, failed = 0;
+  for (const emoji of applicationEmojis.values()) {
+    if (existing.has(emoji.name)) { skipped++; continue; }
+    try {
+      await guild.emojis.create({ attachment: emoji.imageURL(), name: emoji.name, reason: "TroupeBot application emoji import" });
+      existing.add(emoji.name); added++;
+    } catch (error) {
+      failed++;
+      console.warn("[TroupeBot] Could not add emoji " + emoji.name + ": " + error.message);
+    }
+  }
+  return {
+    ok: added > 0 || skipped > 0,
+    message: "Added " + added + " • Skipped " + skipped + " • Failed " + failed +
+      (failed ? ". Check Manage Expressions permission and available server emoji slots." : ".")
+  };
 }
 
 // Future feature code can call getAppEmoji("emoji_name").
@@ -267,43 +299,12 @@ register("emojis", {
 });
 
 // Copy every application emoji into the current server.
-// This command is restricted to the One Cup Administrator role.
 register("emojiadd", {
-  description: "Add all One Cup application emojis to this server.",
+  description: "Add all TroupeBot application emojis to this server.",
   category: "Administration",
-  roleOnly: true,
   async execute(message) {
-    const applicationEmojis = await loadApplicationEmojis();
-    if (!applicationEmojis || applicationEmojis.size === 0) {
-      return message.reply(shortReply("noaccess", "No application emojis found."));
-    }
-
-    const existing = new Set(message.guild.emojis.cache.map(emoji => emoji.name));
-    let added = 0;
-    let skipped = 0;
-    let failed = 0;
-
-    for (const emoji of applicationEmojis.values()) {
-      if (existing.has(emoji.name)) {
-        skipped++;
-        continue;
-      }
-      try {
-        await message.guild.emojis.create({
-          attachment: emoji.imageURL(),
-          name: emoji.name,
-          reason: "One Cup application emoji import"
-        });
-        existing.add(emoji.name);
-        added++;
-      } catch (error) {
-        failed++;
-        console.warn("[One Cup] Could not add emoji " + emoji.name + ": " + error.message);
-      }
-    }
-
-    return message.reply(shortReply("celebrate",
-      "Added " + added + " • Skipped " + skipped + " • Failed " + failed + "."));
+    const result = await importApplicationEmojis(message.guild);
+    return message.reply(shortReply(result.ok ? "celebrate" : "noaccess", result.message));
   }
 });
 
@@ -585,20 +586,12 @@ client.on("messageCreate", async message => {
     const command = findCommand(name);
     if (!command) return;
 
-    const hasCommandAccess = message.member.roles.cache.some(role => role.name === "+++");
+    const hasCommandAccess = hasPlusPlusRole(message.member, message.guild);
     if (!hasCommandAccess) {
       return message.reply(shortReply("noaccess", "You need the +++ role to use commands."));
     }
 
-    const isBotAdmin = hasBotAdminRole(message.member);
-    if (command.roleOnly && !isBotAdmin) {
-      return message.reply(shortReply("noaccess", "No permission."));
-    }
-    if (command.ownerOnly && !isOwner(message.author.id) && !isBotAdmin) {
-      return message.reply(shortReply("noaccess", "No permission."));
-    }
-    const missing = command.permissions.filter(permission => !message.member.permissions.has(permission));
-    if (missing.length && !isBotAdmin) return message.reply(shortReply("noaccess", "No permission."));
+    // Having +++ grants access to every command.
     await command.execute(message, args);
   } catch (error) {
     console.error("[One Cup] Command error:", error);
@@ -611,8 +604,8 @@ client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   try {
-    const member = interaction.member;
-    const hasCommandAccess = member?.roles?.cache?.some(role => role.name === "+++") || false;
+    const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+    const hasCommandAccess = hasPlusPlusRole(member, interaction.guild);
     if (!hasCommandAccess) {
       return await interaction.reply({
         content: shortReply("noaccess", "You need the +++ role to use commands."),
@@ -622,6 +615,11 @@ client.on("interactionCreate", async interaction => {
 
     if (interaction.commandName === "cup") {
       return await interaction.reply({ content: makeCupTopicMessage() });
+    }
+
+    if (interaction.commandName === "emojiadd") {
+      const result = await importApplicationEmojis(interaction.guild);
+      return await interaction.reply({ content: shortReply(result.ok ? "celebrate" : "noaccess", result.message), ephemeral: true });
     }
 
     if (interaction.commandName === "config") {
@@ -716,6 +714,11 @@ client.once("ready", async () => {
       {
         name: "cup",
         description: "Get a completely random discussion topic.",
+        options: []
+      },
+      {
+        name: "emojiadd",
+        description: "Add all TroupeBot application emojis to this server.",
         options: []
       },
       {
