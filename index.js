@@ -3,16 +3,6 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const { Client, GatewayIntentBits, Partials, PermissionsBitField, EmbedBuilder, version } = require("discord.js");
 const tickets = require("./tickets");
-client.on("interactionCreate", async interaction => {
-  if (interaction.isChatInputCommand()) return;
-  try { await tickets.handle(interaction); }
-  catch (error) {
-    console.error("[TroupeBot] Ticket component error:", error);
-    if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
-      await interaction.reply({ content: "Something went wrong with that ticket action.", ephemeral: true }).catch(() => {});
-    }
-  }
-});
 
 const CONFIG = {
   token: process.env.DISCORD_TOKEN,
@@ -37,6 +27,17 @@ const client = new Client({
   ],
   partials: [Partials.Channel, Partials.Message, Partials.User],
   allowedMentions: { parse: [], repliedUser: false }
+});
+
+client.on("interactionCreate", async interaction => {
+  if (interaction.isChatInputCommand()) return;
+  try { await tickets.handle(interaction); }
+  catch (error) {
+    console.error("[TroupeBot] Ticket component error:", error);
+    if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
+      await interaction.reply({ content: "Something went wrong with that ticket action.", ephemeral: true }).catch(() => {});
+    }
+  }
 });
 
 const commands = new Map();
