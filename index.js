@@ -630,7 +630,15 @@ client.on("interactionCreate", async interaction => {
         ...getGuildConfig(interaction.guildId),
         staffRoleId: role.id
       };
-      await saveGuildConfigs();
+      try {
+        await saveGuildConfigs();
+      } catch (saveError) {
+        console.error("[One Cup] Could not save guild config:", saveError);
+        return await interaction.reply({
+          content: shortReply("noaccess", "The staff role was selected, but this host could not save the configuration. Check the host logs/storage permissions."),
+          ephemeral: true
+        });
+      }
       return await interaction.reply({
         content: shortReply("celebrate", "Staff role set to " + role.toString() + ". Staff feedback will now accept feedback about members with this role."),
         ephemeral: true,
