@@ -269,7 +269,9 @@ async function handle(i) {
     if (i.customId === IDS.claim) return claim(i);
     if (i.customId === IDS.close || i.customId === IDS.closeTop) return close(i);
     if (i.customId === IDS.delete) return del(i);
-    if (i.customId === IDS.reopen) return reopen(i);\n    if (i.customId === IDS.keepOpen) return decideCloseRequest(i, true);\n    if (i.customId === IDS.closeNow) return decideCloseRequest(i, false);
+    if (i.customId === IDS.reopen) return reopen(i);
+    if (i.customId === IDS.keepOpen) return decideCloseRequest(i, true);
+    if (i.customId === IDS.closeNow) return decideCloseRequest(i, false);
   }
   if (i.isModalSubmit() && i.customId.startsWith("ticket_modal_")) return create(i, i.customId.slice("ticket_modal_".length));
   if (i.isChatInputCommand()) {
